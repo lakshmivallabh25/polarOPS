@@ -6,7 +6,7 @@ services:
     dockerfilePath: ./Dockerfile    # uses existing Dockerfile to build FastAPI
     startCommand: "uvicorn backend.main:app --host 0.0.0.0 --port $PORT"
     envVars:
-      - key: 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
+      - key: GROQ_API_KEY
         fromSecret: true            # will be set as a Render secret
       - key: SEMS_MODE
         value: "SCADA_MODE"
