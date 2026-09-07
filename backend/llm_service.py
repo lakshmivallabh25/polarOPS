@@ -142,6 +142,30 @@ Provide EXACTLY ONE authoritative, technical sentence explaining why this specif
         if not self.is_energy_domain_query(query):
             return FALLBACK_GUARDRAIL_MSG
 
+        # Custom handling for common queries
+        q_lower = query.lower().strip()
+
+        # Respond with project name
+        if "your name" in q_lower or "what is your name" in q_lower:
+            return "PolarOPS"
+
+        # Respond with active energy sources
+        if "energy sources" in q_lower or "sources are active" in q_lower or "active sources" in q_lower:
+            sources = []
+            if safe_dispatch.get("p_wind_kw", 0) > 0:
+                sources.append("wind")
+            if safe_dispatch.get("p_solar_kw", 0) > 0:
+                sources.append("solar")
+            if safe_dispatch.get("p_diesel_1_kw", 0) > 0:
+                sources.append("diesel generator 1")
+            if safe_dispatch.get("p_diesel_2_kw", 0) > 0:
+                sources.append("diesel generator 2")
+            if safe_dispatch.get("p_battery_discharge_kw", 0) > 0:
+                sources.append("battery discharge")
+            if not sources:
+                return "No generation sources are currently active."
+            return f"Active sources: {', '.join(sources)}."
+
         # Real Groq LLM Inference with brief persona
         if self.client and self.active_model:
             try:
