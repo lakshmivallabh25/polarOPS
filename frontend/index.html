@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PolarOPS // AI-Driven Smart Energy Management System (SEMS)</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+  
+  <!-- FontAwesome Icons CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- Custom Stylesheet -->
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between selection:bg-cyan-500 selection:text-black">
+
+  <!-- Background Video & Dark Contrast Overlay -->
+  <div id="bg-video-container">
+    <video id="bg-video" autoplay loop muted playsinline poster="https://images.unsplash.com/photo-1466611653911-95081537e5b7?q=80&w=1920&auto=format&fit=crop">
+      <!-- High reliability free looping wind turbine video source -->
+      <source src="https://assets.mixkit.co/videos/preview/mixkit-wind-turbines-in-a-wind-farm-generating-electricity-41489-large.mp4" type="video/mp4">
+    </video>
+  </div>
+  <div id="bg-overlay"></div>
+
+  <!-- Top Header Navigation & Commander Bar -->
+  <header class="glass-panel mx-3 mt-3 px-5 py-3 flex flex-wrap items-center justify-between gap-4 z-30">
+    <div class="flex items-center gap-3">
+      <div class="h-10 w-10 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-700 flex items-center justify-center shadow-lg shadow-cyan-500/25 border border-cyan-300/40">
+        <i class="fa-solid fa-snowflake text-white text-xl animate-pulse"></i>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="text-xl font-black tracking-wider text-white uppercase glow-cyan">PolarOPS <span class="text-cyan-400 font-light text-base">// SEMS</span></h1>
+          <span class="px-2 py-0.5 rounded text-[10px] font-bold tracking-widest bg-cyan-950/80 text-cyan-400 border border-cyan-500/30 uppercase">Digital Twin v1.0</span>
+        </div>
+        <p class="text-xs text-slate-400 flex items-center gap-2">
+          <span>Autonomous Microgrid Controller</span>
+          <span class="text-slate-600">|</span>
+          <span class="text-slate-300 font-medium" id="active-station-name">Maitri Research Station</span>
+        </p>
+      </div>
+    </div>
+
+    <!-- Station & Mode Switcher Controls -->
+    <div class="flex flex-wrap items-center gap-3">
+      <!-- Station Toggle (Maitri vs Bharati) -->
+      <div class="flex items-center bg-slate-900/90 rounded-lg p-1 border border-slate-700">
+        <button id="btn-maitri" class="px-3 py-1 rounded text-xs font-semibold tracking-wider transition-all bg-cyan-500 text-slate-950 shadow-md">
+          <i class="fa-solid fa-mountain mr-1"></i> MAITRI
+        </button>
+        <button id="btn-bharati" class="px-3 py-1 rounded text-xs font-semibold tracking-wider transition-all text-slate-400 hover:text-white">
+          <i class="fa-solid fa-compass mr-1"></i> BHARATI
+        </button>
+      </div>
+
+      <!-- Mode Toggle (DEMO_MODE vs SCADA_MODE) -->
+      <div class="flex items-center bg-slate-900/90 rounded-lg p-1 border border-slate-700">
+        <button id="btn-mode-demo" class="px-3 py-1 rounded text-xs font-semibold tracking-wider transition-all bg-emerald-500 text-slate-950 shadow-md" title="Live NASA/Open-Meteo Antarctic Weather API">
+          <i class="fa-solid fa-satellite mr-1"></i> DEMO_API
+        </button>
+        <button id="btn-mode-scada" class="px-3 py-1 rounded text-xs font-semibold tracking-wider transition-all text-slate-400 hover:text-white" title="Stubbed Modbus TCP / MQTT Registers">
+          <i class="fa-solid fa-server mr-1"></i> SCADA_BUS
+        </button>
+      </div>
+
+      <!-- SCADA Telemetry Stream Badge (Active in SCADA mode) -->
+      <div id="scada-stream-badge" class="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-lg bg-slate-900/90 border border-slate-700 text-[11px] font-mono text-slate-400 transition-all">
+        <i id="scada-indicator-icon" class="fa-solid fa-satellite text-emerald-400"></i>
+        <span id="scada-stream-text">API: OPEN-METEO LIVE</span>
+      </div>
+
+      <!-- Status Indicator -->
+      <div id="system-status-badge" class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-950/60 border border-emerald-500/30 text-emerald-400 text-xs font-mono font-medium">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 status-pulse"></span>
+        <span id="system-status-text">MICROGRID LOCKED</span>
+      </div>
+
+      <!-- Station UTC Clock -->
+      <div class="hidden lg:flex flex-col text-right font-mono text-xs text-slate-400 border-l border-slate-700 pl-3">
+        <span id="utc-clock" class="text-cyan-300 font-semibold tracking-wider text-sm">00:00:00 UTC</span>
+        <span class="text-[10px] text-slate-500">ANTARCTICA/STATION TIME</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Grid Dashboard Content -->
+  <main class="flex-1 p-3 space-y-3 z-10">
+
+    <!-- Top Row: Telemetry & Insights HUD Cards -->
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+      
+      <!-- Wind Speed Card -->
+      <div class="glass-panel p-3.5 relative overflow-hidden">
+        <div class="flex justify-between items-start">
+          <span class="text-[11px] font-semibold tracking-wider uppercase text-slate-400">Wind Velocity</span>
+          <i class="fa-solid fa-wind text-cyan-400 text-sm"></i>
+        </div>
+        <div class="mt-2 flex items-baseline gap-1.5">
+          <span id="hud-wind-speed" class="text-2xl font-bold font-mono text-white glow-cyan">--</span>
+          <span class="text-xs text-cyan-300">m/s</span>
+        </div>
+        <div class="mt-1 flex items-center justify-between text-[11px] text-slate-400">
+          <span>Gusts: <strong id="hud-wind-gust" class="text-slate-200">-- m/s</strong></span>
+          <span id="hud-wind-state" class="text-emerald-400 text-[10px] uppercase font-bold">RATED</span>
+        </div>
+      </div>
+
+      <!-- Ambient Temperature & Wind Chill -->
+      <div class="glass-panel p-3.5 relative overflow-hidden">
+        <div class="flex justify-between items-start">
+          <span class="text-[11px] font-semibold tracking-wider uppercase text-slate-400">Ambient Temp</span>
+          <i class="fa-solid fa-temperature-empty text-blue-400 text-sm"></i>
+        </div>
+        <div class="mt-2 flex items-baseline gap-1.5">
+          <span id="hud-temp" class="text-2xl font-bold font-mono text-cyan-300">--</span>
+          <span class="text-xs text-slate-400">°C</span>
+        </div>
+        <div class="mt-1 flex items-center justify-between text-[11px] text-slate-400">
+          <span>Wind Chill: <strong id="hud-windchill" class="text-slate-200">--°C</strong></span>
+          <span id="hud-temp-status" class="text-cyan-400 text-[10px] uppercase font-bold">POLAR</span>
+        </div>
+      </div>
+
+      <!-- Solar Irradiance (Bifacial) -->
+      <div class="glass-panel p-3.5 relative overflow-hidden">
+        <div class="flex justify-between items-start">
+          <span class="text-[11px] font-semibold tracking-wider uppercase text-slate-400">Solar Irradiance</span>
+          <i class="fa-solid fa-sun text-amber-400 text-sm"></i>
+        </div>
+        <div class="mt-2 flex items-baseline gap-1.5">
+          <span id="hud-solar" class="text-2xl font-bold font-mono text-amber-300">--</span>
+          <span class="text-xs text-slate-400">W/m²</span>
+        </div>
+        <div class="mt-1 flex items-center justify-between text-[11px] text-slate-400">
+          <span>Albedo Gain: <strong class="text-emerald-400">+20%</strong></span>
+          <span id="hud-solar-status" class="text-slate-400 text-[10px] uppercase font-bold">ACTIVE</span>
+        </div>
+      </div>
+
+      <!-- Battery SoC & Cell Temp -->
+      <div class="glass-panel p-3.5 relative overflow-hidden">
+        <div class="flex justify-between items-start">
+          <span class="text-[11px] font-semibold tracking-wider uppercase text-slate-400">BESS Capacity & Temp</span>
+          <i class="fa-solid fa-car-battery text-emerald-400 text-sm"></i>
+        </div>
+        <div class="mt-2 flex items-baseline gap-2">
+          <span id="hud-battery-soc" class="text-2xl font-bold font-mono text-emerald-400">--%</span>
+          <span class="text-xs text-slate-400">|</span>
+          <span id="hud-battery-temp" class="text-lg font-bold font-mono text-slate-200">--°C</span>
+        </div>
+        <div class="mt-1 flex items-center justify-between text-[11px]">
+          <span id="hud-battery-derate" class="text-slate-400">Derating: 100%</span>
+          <span id="hud-battery-badge" class="text-emerald-400 text-[10px] font-bold uppercase">HEALTHY</span>
+        </div>
+      </div>
+
+      <!-- Cumulative Diesel Fuel Saved -->
+      <div class="glass-panel p-3.5 relative overflow-hidden col-span-2 md:col-span-1 border-cyan-500/30">
+        <div class="flex justify-between items-start">
+          <span class="text-[11px] font-semibold tracking-wider uppercase text-cyan-400">Diesel Saved</span>
+          <i class="fa-solid fa-gas-pump text-cyan-400 text-sm"></i>
+        </div>
+        <div class="mt-2 flex items-baseline gap-1.5">
+          <span id="hud-diesel-saved" class="text-2xl font-bold font-mono text-white glow-emerald">4,280</span>
+          <span class="text-xs text-emerald-400 font-semibold">Liters</span>
+        </div>
+        <div class="mt-1 flex items-center justify-between text-[11px] text-slate-400">
+          <span>CO₂ Avoided: <strong id="hud-co2-saved" class="text-emerald-400 font-mono">11.4 t</strong></span>
+          <span class="text-emerald-400 font-mono text-[10px] font-bold">ECO-DEFENSE</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Central Section: Energy Flow Matrix & Analytics -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-3">
+      
+      <!-- Energy Flow Matrix (Animation Canvas) - 7 cols -->
+      <div class="lg:col-span-7 glass-panel p-4 flex flex-col justify-between relative min-h-[380px]">
+        <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+          <div class="flex items-center gap-2">
+            <i class="fa-solid fa-diagram-project text-cyan-400"></i>
+            <h2 class="text-xs font-bold uppercase tracking-widest text-slate-200">Real-Time Energy Flow Matrix</h2>
+          </div>
+          <div class="flex items-center gap-4 text-xs font-mono">
+            <span class="text-slate-400">Elec Load: <strong id="matrix-elec-load" class="text-cyan-300 font-bold">-- kWe</strong></span>
+            <span class="text-slate-400">Thermal Load: <strong id="matrix-thermal-load" class="text-rose-400 font-bold">-- kWth</strong></span>
+          </div>
+        </div>
+
+        <!-- Canvas for dynamic particle flow vectors -->
+        <div class="relative w-full flex-1 flex items-center justify-center my-2">
+          <canvas id="energy-flow-canvas" class="w-full h-[280px] rounded-lg"></canvas>
+        </div>
+
+        <!-- Matrix Power Gauges Bottom Bar with Dedicated Icons -->
+        <div class="grid grid-cols-4 gap-2 pt-2 border-t border-slate-800/80 text-center font-mono">
+          <div class="bg-slate-900/80 p-2 rounded-lg border border-cyan-500/30 flex flex-col items-center justify-center">
+            <div class="flex items-center gap-1.5 text-cyan-400 text-xs font-bold mb-0.5">
+              <i class="fa-solid fa-fan text-sm"></i>
+              <span class="text-[10px] tracking-wider uppercase">Windmill</span>
+            </div>
+            <span id="flow-wind-val" class="text-sm font-bold text-white">-- kW</span>
+          </div>
+          <div class="bg-slate-900/80 p-2 rounded-lg border border-amber-500/30 flex flex-col items-center justify-center">
+            <div class="flex items-center gap-1.5 text-amber-400 text-xs font-bold mb-0.5">
+              <i class="fa-solid fa-solar-panel text-sm"></i>
+              <span class="text-[10px] tracking-wider uppercase">Solar PV</span>
+            </div>
+            <span id="flow-solar-val" class="text-sm font-bold text-white">-- kW</span>
+          </div>
+          <div class="bg-slate-900/80 p-2 rounded-lg border border-emerald-500/30 flex flex-col items-center justify-center">
+            <div class="flex items-center gap-1.5 text-emerald-400 text-xs font-bold mb-0.5">
+              <i class="fa-solid fa-car-battery text-sm"></i>
+              <span class="text-[10px] tracking-wider uppercase">Battery BESS</span>
+            </div>
+            <span id="flow-battery-val" class="text-sm font-bold text-white">-- kW</span>
+          </div>
+          <div class="bg-slate-900/80 p-2 rounded-lg border border-rose-500/30 flex flex-col items-center justify-center">
+            <div class="flex items-center gap-1.5 text-rose-400 text-xs font-bold mb-0.5">
+              <i class="fa-solid fa-gears text-sm"></i>
+              <span class="text-[10px] tracking-wider uppercase">Generator</span>
+            </div>
+            <span id="flow-diesel-val" class="text-sm font-bold text-white">-- kW</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column: Forecast & Dispatch Split - 5 cols -->
+      <div class="lg:col-span-5 space-y-3 flex flex-col">
+        
+        <!-- Multi-Horizon Systematic Forecast Timeline -->
+        <div class="glass-panel p-4 flex-1 flex flex-col">
+          <div class="flex items-center justify-between pb-2 border-b border-slate-800 gap-2 flex-wrap">
+            <div class="flex items-center gap-2">
+              <i class="fa-solid fa-chart-line text-cyan-400"></i>
+              <h2 id="forecast-header-title" class="text-xs font-bold uppercase tracking-widest text-slate-200">Predictive AI Forecast</h2>
+            </div>
+            <!-- Expanded Horizon Dropdown Selector -->
+            <div class="flex items-center gap-1.5">
+              <label for="forecast-horizon-select" class="text-[10px] text-slate-400 uppercase font-mono">Horizon:</label>
+              <select id="forecast-horizon-select" class="bg-slate-900/90 text-cyan-300 border border-cyan-500/40 rounded px-2 py-1 text-xs font-mono font-semibold focus:outline-none focus:border-cyan-400 transition-all cursor-pointer shadow-inner">
+                <option value="24 Hours" selected>24 Hours</option>
+                <option value="Tomorrow">Tomorrow</option>
+                <option value="Current Week">Current Week</option>
+                <option value="Next 2-3 Weeks">Next 2-3 Weeks</option>
+                <option value="1 Month">1 Month</option>
+                <option value="3 Months">3 Months</option>
+                <option value="6 Months">6 Months</option>
+                <option value="12 Months">12 Months</option>
+              </select>
+            </div>
+          </div>
+          <div class="relative w-full flex-1 min-h-[170px] mt-2">
+            <canvas id="forecast-chart"></canvas>
+          </div>
+        </div>
+
+        <!-- Energy Dispatch Split Donut -->
+        <div class="glass-panel p-4">
+          <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+            <div class="flex items-center gap-2">
+              <i class="fa-solid fa-chart-pie text-emerald-400"></i>
+              <h2 class="text-xs font-bold uppercase tracking-widest text-slate-200">Current Generation Split</h2>
+            </div>
+            <span id="green-energy-ratio" class="text-xs font-mono font-bold text-emerald-400">--% RENEWABLE</span>
+          </div>
+          <div class="flex items-center justify-between gap-4 mt-2">
+            <div class="w-32 h-32 relative flex items-center justify-center">
+              <canvas id="dispatch-donut-chart"></canvas>
+            </div>
+            <div class="flex-1 space-y-1.5 text-xs font-mono">
+              <div class="flex justify-between items-center text-cyan-400">
+                <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-cyan-400 inline-block"></span> Wind:</span>
+                <span id="split-wind-pct" class="font-bold">--%</span>
+              </div>
+              <div class="flex justify-between items-center text-amber-400">
+                <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block"></span> Solar:</span>
+                <span id="split-solar-pct" class="font-bold">--%</span>
+              </div>
+              <div class="flex justify-between items-center text-emerald-400">
+                <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-400 inline-block"></span> Battery:</span>
+                <span id="split-batt-pct" class="font-bold">--%</span>
+              </div>
+              <div class="flex justify-between items-center text-rose-400">
+                <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block"></span> Diesel (CHP):</span>
+                <span id="split-diesel-pct" class="font-bold">--%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- Bottom Row: Equipment Health, Action Logs & Commander Controls -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-3">
+      
+      <!-- Predictive Maintenance Diagnostics - 3 cols -->
+      <div class="lg:col-span-3 glass-panel p-4 flex flex-col justify-between">
+        <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+          <div class="flex items-center gap-2">
+            <i class="fa-solid fa-screwdriver-wrench text-amber-400"></i>
+            <h2 class="text-xs font-bold uppercase tracking-widest text-slate-200">Hardware Diagnostics</h2>
+          </div>
+          <span class="text-[10px] font-mono text-slate-400">SCADA RTU</span>
+        </div>
+
+        <div class="space-y-3 mt-3">
+          <!-- Genset 1 -->
+          <div>
+            <div class="flex justify-between text-xs font-mono mb-1">
+              <span class="text-slate-300">Genset 1 (100 kW)</span>
+              <span id="diag-gen1-status" class="text-emerald-400 font-bold">RUNNING (88%)</span>
+            </div>
+            <div class="w-full bg-slate-800 rounded-full h-1.5">
+              <div id="diag-gen1-bar" class="bg-emerald-500 h-1.5 rounded-full transition-all duration-500" style="width: 88%"></div>
+            </div>
+            <span id="diag-gen1-sub" class="text-[10px] text-slate-400">Run: 35m / 60m min-runtime</span>
+          </div>
+
+          <!-- Genset 2 -->
+          <div>
+            <div class="flex justify-between text-xs font-mono mb-1">
+              <span class="text-slate-300">Genset 2 (Standby)</span>
+              <span id="diag-gen2-status" class="text-cyan-400 font-bold">READY (96%)</span>
+            </div>
+            <div class="w-full bg-slate-800 rounded-full h-1.5">
+              <div id="diag-gen2-bar" class="bg-cyan-500 h-1.5 rounded-full transition-all duration-500" style="width: 96%"></div>
+            </div>
+            <span class="text-[10px] text-slate-400">Auto-start latency: &lt; 8.2s</span>
+          </div>
+
+          <!-- Wind Turbine Array -->
+          <div>
+            <div class="flex justify-between text-xs font-mono mb-1">
+              <span class="text-slate-300">Wind Turbine Mast</span>
+              <span id="diag-wind-status" class="text-emerald-400 font-bold">NOMINAL (92%)</span>
+            </div>
+            <div class="w-full bg-slate-800 rounded-full h-1.5">
+              <div id="diag-wind-bar" class="bg-emerald-500 h-1.5 rounded-full transition-all duration-500" style="width: 92%"></div>
+            </div>
+            <span id="diag-wind-sub" class="text-[10px] text-slate-400">Bearing vibration nominal</span>
+          </div>
+
+          <!-- BESS Thermal Jacket -->
+          <div>
+            <div class="flex justify-between text-xs font-mono mb-1">
+              <span class="text-slate-300">BESS Thermal Jacket</span>
+              <span id="diag-bess-status" class="text-emerald-400 font-bold">ACTIVE (97%)</span>
+            </div>
+            <div class="w-full bg-slate-800 rounded-full h-1.5">
+              <div id="diag-bess-bar" class="bg-emerald-500 h-1.5 rounded-full transition-all duration-500" style="width: 97%"></div>
+            </div>
+            <span id="diag-bess-sub" class="text-[10px] text-slate-400">Core Temp: -12.4°C</span>
+          </div>
+        </div>
+
+        <div class="mt-3 p-2 rounded bg-slate-900/80 border border-slate-800 text-[11px] font-mono text-slate-400">
+          <i class="fa-solid fa-info-circle text-cyan-400 mr-1"></i>
+          <span>CHP Loop: <strong id="hud-chp-temp" class="text-rose-400">78.4°C</strong> | Glycol Circulation OK</span>
+        </div>
+      </div>
+
+      <!-- Action Logs & Groq LLM Explanation Feed - 5 cols -->
+      <div class="lg:col-span-5 glass-panel p-4 flex flex-col">
+        <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+          <div class="flex items-center gap-2">
+            <i class="fa-solid fa-terminal text-cyan-400"></i>
+            <h2 class="text-xs font-bold uppercase tracking-widest text-slate-200">SEMS Audit & AI Explanation Feed</h2>
+          </div>
+          <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
+            <i class="fa-solid fa-brain text-cyan-400 mr-1"></i> Groq Llama-3
+          </span>
+        </div>
+
+        <!-- Latest 1-Sentence Plain English AI Explanation Card -->
+        <div id="ai-current-explanation-card" class="mt-2 p-3 rounded-lg bg-cyan-950/40 border border-cyan-500/30 text-xs font-sans text-cyan-100 flex items-start gap-2.5">
+          <i class="fa-solid fa-robot text-cyan-400 mt-0.5 text-base"></i>
+          <div>
+            <span class="font-bold text-[10px] uppercase tracking-wider text-cyan-400 block font-mono">Commander AI Dispatch Rationale:</span>
+            <p id="ai-current-explanation-text" class="italic leading-relaxed mt-0.5">
+              SEMS optimizer actively balancing polar katabatic wind and solar generation to suppress diesel consumption while maintaining station life-support CHP heating.
+            </p>
+          </div>
+        </div>
+
+        <!-- Terminal Log Feed -->
+        <div id="terminal-feed" class="terminal-window mt-2 p-2.5 rounded-lg flex-1 min-h-[160px] max-h-[190px] overflow-y-auto space-y-1.5 text-[11px]">
+          <!-- Logs appended via JavaScript -->
+        </div>
+      </div>
+
+      <!-- Commander Override Panel (Demo Controls) - 4 cols -->
+      <div class="lg:col-span-4 glass-panel p-4 flex flex-col justify-between">
+        <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+          <div class="flex items-center gap-2">
+            <i class="fa-solid fa-sliders text-rose-400"></i>
+            <h2 class="text-xs font-bold uppercase tracking-widest text-slate-200">Commander Override Controls</h2>
+          </div>
+          <button id="btn-reset-overrides" class="text-[10px] font-mono text-slate-400 hover:text-cyan-300 transition-colors uppercase">
+            <i class="fa-solid fa-rotate-left mr-1"></i> Reset
+          </button>
+        </div>
+
+        <div class="space-y-3 mt-2 text-xs">
+          <!-- Blizzard Temperature Slider -->
+          <div>
+            <div class="flex justify-between items-center text-slate-300 font-mono mb-1">
+              <span>Ambient Temp Override:</span>
+              <strong id="slider-temp-val" class="text-cyan-300">Default</strong>
+            </div>
+            <input type="range" id="slider-temp" min="-50" max="5" value="-20" class="w-full">
+            <div class="flex justify-between text-[10px] text-slate-500 mt-0.5">
+              <span>-50°C (Blizzard)</span>
+              <span>0°C (Polar Summer)</span>
+            </div>
+          </div>
+
+          <!-- Wind Gale Slider -->
+          <div>
+            <div class="flex justify-between items-center text-slate-300 font-mono mb-1">
+              <span>Wind Velocity Override:</span>
+              <strong id="slider-wind-val" class="text-cyan-300">Default</strong>
+            </div>
+            <input type="range" id="slider-wind" min="0" max="35" value="10" class="w-full">
+            <div class="flex justify-between text-[10px] text-slate-500 mt-0.5">
+              <span>0 m/s (Calm)</span>
+              <span>&gt;25 m/s (Storm Cutout)</span>
+            </div>
+          </div>
+
+          <!-- Fault Injection Buttons -->
+          <div class="pt-2 border-t border-slate-800 grid grid-cols-2 gap-2">
+            <button id="btn-trip-gen1" class="px-2.5 py-1.5 rounded bg-slate-900 hover:bg-rose-950/80 border border-slate-700 hover:border-rose-500/50 text-slate-300 hover:text-rose-300 text-[11px] font-mono font-medium transition-all flex items-center justify-center gap-1.5">
+              <i class="fa-solid fa-triangle-exclamation text-rose-500"></i> Trip Genset 1
+            </button>
+            <button id="btn-fault-bess" class="px-2.5 py-1.5 rounded bg-slate-900 hover:bg-amber-950/80 border border-slate-700 hover:border-amber-500/50 text-slate-300 hover:text-amber-300 text-[11px] font-mono font-medium transition-all flex items-center justify-center gap-1.5">
+              <i class="fa-solid fa-snowflake text-amber-500"></i> BESS Freeze Fault
+            </button>
+          </div>
+        </div>
+
+        <div class="mt-2 text-[10px] text-slate-500 italic">
+          * Injecting faults immediately triggers deterministic Safety Guardrail overrides and recalculates MPC dispatch.
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- Floating Commander AI Assistant Chat Button -->
+  <button id="btn-open-chat" class="fixed bottom-4 right-4 z-40 px-4 py-2.5 rounded-full bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-medium text-xs shadow-xl shadow-cyan-900/50 border border-cyan-400/40 flex items-center gap-2 transition-all hover:scale-105">
+    <i class="fa-solid fa-comment-dots text-base animate-pulse"></i>
+    <span>Ask Station AI Assistant</span>
+  </button>
+
+  <!-- AI Assistant Chat Drawer (Modal / Sliding Card) -->
+  <div id="chat-drawer" class="fixed bottom-16 right-4 w-96 max-w-[92vw] glass-panel z-50 p-4 rounded-xl shadow-2xl border border-cyan-500/40 flex flex-col hidden" style="height: 480px;">
+    <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+      <div class="flex items-center gap-2">
+        <div class="w-8 h-8 rounded-lg bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-400">
+          <i class="fa-solid fa-brain"></i>
+        </div>
+        <div>
+          <h3 class="text-xs font-bold uppercase tracking-wider text-slate-200">Commander AI Copilot</h3>
+          <span class="text-[10px] text-emerald-400 font-mono">Context-Aware Microgrid Assistant</span>
+        </div>
+      </div>
+      <button id="btn-close-chat" class="text-slate-400 hover:text-white text-sm">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
+    <!-- Messages Window -->
+    <div id="chat-messages" class="flex-1 my-3 overflow-y-auto space-y-2.5 pr-1 text-xs chat-scroll">
+      <div class="p-2.5 rounded-lg bg-slate-900/80 border border-slate-800 text-slate-300">
+        <strong class="text-cyan-400 block text-[10px] uppercase font-mono mb-1">PolarOPS Copilot:</strong>
+        Greetings Commander. I am monitoring the station microgrid, diesel fuel reserve, BESS temperature jacket, and weather forecast. Ask me any question regarding dispatch decisions, guardrail safety actions, or equipment health.
+      </div>
+    </div>
+
+    <!-- Quick Prompts Chips -->
+    <div class="flex flex-wrap gap-1.5 mb-2">
+      <button class="quick-chip px-2 py-1 rounded bg-slate-900 hover:bg-cyan-950 border border-slate-800 hover:border-cyan-500/40 text-[10px] text-slate-400 hover:text-cyan-300">
+        Why is Diesel running?
+      </button>
+      <button class="quick-chip px-2 py-1 rounded bg-slate-900 hover:bg-cyan-950 border border-slate-800 hover:border-cyan-500/40 text-[10px] text-slate-400 hover:text-cyan-300">
+        Battery health & derating?
+      </button>
+      <button class="quick-chip px-2 py-1 rounded bg-slate-900 hover:bg-cyan-950 border border-slate-800 hover:border-cyan-500/40 text-[10px] text-slate-400 hover:text-cyan-300">
+        Blizzard endurance?
+      </button>
+    </div>
+
+    <!-- Chat Input Form -->
+    <form id="chat-form" class="flex items-center gap-2 pt-2 border-t border-slate-800">
+      <input type="text" id="chat-input" placeholder="Type query for Commander AI..." class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-400">
+      <button type="submit" class="px-3 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold transition-all">
+        <i class="fa-solid fa-paper-plane"></i>
+      </button>
+    </form>
+  </div>
+
+  <!-- Application Logic -->
+  <script src="/static/app.js"></script>
+</body>
+</html>
