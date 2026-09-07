@@ -162,11 +162,8 @@ Answer concisely in plain English, no more than two short sentences."""
             except Exception:
                 pass
 
-        # Heuristic fallback (same as before)
-        if not self.is_energy_domain_query(query):
-            return FALLBACK_GUARDRAIL_MSG
-        # Simple heuristic: echo the query
-        return f"Answer: {query}"
+        # Heuristic fallback – if the LLM could not produce a response, return a generic message.
+        return "I’m sorry, I couldn’t generate a response right now. Please try again later."
 
         # 3. Offline Intelligent Fallback Q&A Engine
         q_lower = query.lower()
